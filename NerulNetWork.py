@@ -1,0 +1,180 @@
+import numpy as np
+from matplotlib import pyplot as plt
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+class NN():
+    def __init__(self,L,alpha):
+        # Super parameters
+        self.L=L
+        self.alpha=alpha
+        self.loss=[]
+        self.lmda=10
+
+    # mini-batch 梯度下降训练集
+    def Genernate_Train_Data_batch(self,data_num=1000,batch_size=200):
+        df = pd.read_csv('train_data.csv')
+        X = df['data'][0:data_num]
+        Y = df['label'][0:data_num]
+        t_s = 0.2
+        # 前期准备
+        train_x, test_x, train_y, test_y = \
+            train_test_split(X, Y, test_size=t_s, random_state=42)
+        train_y_list=[]
+        train_x_list=[]
+        self.tra_num = batch_size
+        train_x1 = np.array([[int(i[1]), int(i[3]), int(i[5])] for i in train_x]).T
+        for i in range(int((1-t_s)*data_num/batch_size)):
+            train_y_list.append(np.array([train_y[i*batch_size:i*batch_size+batch_size]]))
+            train_x_list.append(np.array(train_x1[:,i*batch_size:i*batch_size+batch_size]))
+        # 训练集
+        self.train_y = train_y_list
+        self.test_y = np.array([n for n in test_y]).T
+        self.train_x=train_x_list
+        self.test_x=np.array([[int(i[1]),int(i[3]),int(i[5])] for i in test_x]).T
+
+    # 制作普通梯度下降训练集
+    def Genernate_Train_Data(self, data_num=1000):
+        df = pd.read_csv('train_data.csv')
+        X = df['data'][0:data_num]
+        Y = df['label'][0:data_num]
+        t_s=0.3
+        train_x, test_x, train_y, test_y =\
+            train_test_split(X, Y, test_size=t_s, random_state=42)
+        self.train_y=np.array([n for n in train_y]).T
+        self.test_y=np.array([n for n in test_y]).T
+        self.tra_num=0.3*len(X)
+        self.train_x=np.array([[int(i[1]),int(i[3]),int(i[5])] for i in train_x]).T
+        self.test_x=np.array([[int(i[1]),int(i[3]),int(i[5])] for i in test_x]).T
+
+    # 每个Epoch训练完之后，check一下在验证集上的正确率与loss
+    def check(self):
+        predict = self.test_x
+        for i in self.W:
+            predict = self.g(i.dot(predict))
+        p_y = np.where(predict > 0.5, 1, 0).sum(axis=0)
+        y=predict[-1]
+        all = len(self.test_y)
+        J = -(self.test_y * (np.log(y)) + (1 - self.test_y) * np.log(1 - y)).sum() / (
+                    self.tra_num * 2) + self.lmda * self.R()
+        t = 0
+        for x in range(all):
+            if p_y[x] == self.test_y[x]:
+                t += 1
+        print('val_acc:', t / len(self.test_y),'val_loss:',J,len(self.test_y),t)
+
+    # 激活函数
+    def g(self,z,diff=False):
+        if diff:
+            return self.g(z)*(1-self.g(z))
+        else:
+            return 1./(1+np.exp(-z)+1e-5)
+
+    # 正则项
+    def R(self):
+        w2=0
+        for w in self.W:
+            w2+=np.linalg.norm(w)
+        return w2
+
+    # 前向传播
+    def F_P(self,index):
+        # Forward progatation
+        Z=[]
+        A=[]
+        Z.append(self.train_x[index])
+        A.append(self.train_x[index])
+        for i in range(L-1):
+            Z.append(self.W[i].dot(A[-1]))
+            A.append(self.g(Z[-1]))
+
+        # Loss Function
+        y=A[-1]
+        J=-(self.train_y[index]*(np.log(y))+(1-self.train_y[index])*np.log(1-y)).sum()/(self.tra_num*2)+self.lmda*self.R()
+        print('train_loss is : ',J)
+        self.loss.append(J)
+        return self.B_P(Z,y,index)
+
+    # 反向传播
+    def B_P(self,Z,y,index):
+        # Back progatation
+        dZ=[]
+        dA=[]
+        dW=[]
+        dA.append((y-self.train_y[index])/(y*(1-y)))
+        print(np.array(self.train_y[index]).shape)
+        print(y.shape)
+        dZ.append(y-self.train_y[index])
+        for i in range(L-1):
+            dA.append(self.W[-i-1].T.dot(dZ[-1]))
+            dW.append(dZ[-1].dot(dA[-1].T))
+            dZ.append(dA[-1]*self.g(Z[-1],diff=True))
+        self.Gradient_decent(dW)
+
+    # 普通梯度下降
+    def Gradient_decent(self,dW):
+        for i in range(L-1):
+            self.W[i]-=self.alpha*dW[-i-1]
+
+    # 正式训练
+    def Train(self,struct,train_num):
+        N = struct
+        a=0
+        for i in range(len(struct)-1):
+            a+=struct[i]*struct[i+1]
+        self.tra_dim=struct[0]
+        self.W = [np.random.randn(N[i], N[i - 1])/a for i in range(1, self.L)]
+        for i in range(train_num):
+            for j in range(len(self.train_x)):
+                self.F_P(j)
+                self.check()
+
+    # 画损失函数值（训练阶段）
+    def Plot_Loss(self):
+        plt.figure()
+        plt.plot(self.loss)
+        plt.show()
+
+    # 测试准确率
+    def Test(self,test_data_num):
+            self.Test_x = np.random.randint(0, 10, (self.tra_dim, test_data_num)).astype('float64')
+            self.Test_y = np.where(self.Test_x.sum(axis=0) > 15, 1, 0)
+            predict=self.Test_x
+            for i in self.W:
+                predict=i.dot(predict)
+            p_y=np.where(predict>0.5,1,0).sum(axis=0)
+            all=len(self.Test_y)
+            t=0
+            t1=0
+            t0=0
+            n1=0
+            n0=0
+            xx=0
+            for x in range(all):
+                if p_y[x]==self.Test_y[x]:
+                    t+=1
+                if p_y[x]==1 and self.Test_y[x]==1:
+                    t1+=1
+                if p_y[x]==0 and self.Test_y[x]==0:
+                    t0+=1
+                if p_y[x]==1:
+                    n1+=1
+                if p_y[x]==0:
+                    n0+=1
+                if self.Test_y[x]==1:
+                    xx+=1
+            # print(self.Test_x)
+            # print('精确率:1,0 is ',t1/n1,t0/n0)
+            # print('召回率：1,0 is ',t1/xx,t0/(self.tes_num-xx))
+            print('准确率 ：',t/test_data_num)
+
+if __name__ == '__main__':
+    # super parameters
+    L = 5
+    alpha = 0.001
+    model=NN(L,alpha)
+    model.Genernate_Train_Data_batch(data_num=4000)
+    # struct是网络结构，本网络一共5层，每层分别3，3，5，2，1个神经元
+    model.Train(struct=[3, 3, 5, 2, 1],train_num=10)
+    # 训练50个Epoch
+    model.Test(test_data_num=50)
