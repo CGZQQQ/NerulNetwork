@@ -19,6 +19,13 @@ class NN():
         self.Vdw = np.array([np.zeros((struct[self.L-i],struct[self.L-i-1])) for i in range(1, self.L)])
 
 
+    # 数据归一化
+    def Normalize_Data(self,data):
+        average=np.mean(data,axis=1).reshape(3,1)
+        variance=np.var(data,axis=1).reshape(3,1)
+        normal_data=(data-average)/(variance)
+        return normal_data
+
     # mini-batch 梯度下降训练集
     def Genernate_Train_Data_batch(self,data_num=1000,batch_size=200):
         df = pd.read_csv('train_data.csv')
@@ -32,6 +39,8 @@ class NN():
         train_x_list=[]
         self.tra_num = batch_size
         train_x1 = np.array([[int(i[1]), int(i[3]), int(i[5])] for i in train_x]).T
+        # 归一化输入
+        train_x1=self.Normalize_Data(train_x1)
         for i in range(int((1-t_s)*data_num/batch_size)):
             train_y_list.append(np.array([train_y[i*batch_size:i*batch_size+batch_size]]))
             train_x_list.append(np.array(train_x1[:,i*batch_size:i*batch_size+batch_size]))
@@ -119,7 +128,7 @@ class NN():
             dZ.append(dA[-1]*self.g(Z[-1],diff=True))
         # 梯度下降，每个batch结束都会梯度下降一次
         dW=np.array(dW)
-        self.Momentum_Gradient_decent(dW)
+        self.Adam(dW,index+1)
 
     # 普通梯度下降
     def Gradient_decent(self,dW):
