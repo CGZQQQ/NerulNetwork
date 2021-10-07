@@ -4,12 +4,20 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 class NN():
-    def __init__(self,L,alpha):
+    def __init__(self,L,alpha,struct):
         # Super parameters
+        self.struct=struct
         self.L=L
         self.alpha=alpha
         self.loss=[]
         self.lmda=10
+        # RMSprop Gradient decent parameters
+        self.Sdw_beta = 0.99
+        self.Sdw = np.array([np.zeros((struct[self.L-i],struct[self.L-i-1])) for i in range(1, self.L)])
+        # Momentum Gradient decent parameters
+        self.Vdw_beta = 0.9
+        self.Vdw = np.array([np.zeros((struct[self.L-i],struct[self.L-i-1])) for i in range(1, self.L)])
+
 
     # mini-batch 梯度下降训练集
     def Genernate_Train_Data_batch(self,data_num=1000,batch_size=200):
@@ -101,14 +109,15 @@ class NN():
         dZ=[]
         dA=[]
         dW=[]
+        # 初始化一下
         dA.append((y-self.train_y[index])/(y*(1-y)))
-        print(np.array(self.train_y[index]).shape)
-        print(y.shape)
         dZ.append(y-self.train_y[index])
+        # 开始反向传播计算每一层权重的梯度，这里我没有加偏置
         for i in range(L-1):
             dA.append(self.W[-i-1].T.dot(dZ[-1]))
             dW.append(dZ[-1].dot(dA[-1].T))
             dZ.append(dA[-1]*self.g(Z[-1],diff=True))
+        # 梯度下降，每个batch结束都会梯度下降一次
         self.Gradient_decent(dW)
 
     # 普通梯度下降
@@ -116,18 +125,37 @@ class NN():
         for i in range(L-1):
             self.W[i]-=self.alpha*dW[-i-1]
 
+    # Momentum梯度下降
+    def Momentum_Gradient_decent(self, dW):
+        self.Vdw=self.Vdw_beta*self.Vdw+(1-self.Vdw_beta)*dW
+        for i in range(L - 1):
+            self.W[i] -= self.alpha * self.Vdw[-i-1]
+
+    # RMSprop梯度下降
+    def RMSprop_Gradient_decent(self, dW):
+        self.Sdw=self.Sdw_beta*self.Sdw+(1-self.Sdw_beta)*(dW*dW)
+        for i in range(L - 1):
+            self.W[i] -= self.alpha * (dW[-i-1]/(np.sqrt(self.Sdw[-i-1])+1e-8))
+
+    # Adam
+    def Adam(self, dW, t):
+        self.Vdw = self.Vdw_beta * self.Vdw + (1 - self.Vdw_beta) * dW
+        self.Sdw = self.Sdw_beta * self.Sdw + (1 - self.Sdw_beta) * (dW * dW)
+        for i in range(L - 1):
+            self.W[i] -= self.alpha * (self.Vdw[-i-1])/(np.sqrt(self.Sdw[-i-1])+1e-8)*\
+                         ((1-self.Sdw_beta**t)/(1-self.Vdw_beta**t))
+
     # 正式训练
-    def Train(self,struct,train_num):
-        N = struct
-        a=0
-        for i in range(len(struct)-1):
-            a+=struct[i]*struct[i+1]
-        self.tra_dim=struct[0]
-        self.W = [np.random.randn(N[i], N[i - 1])/a for i in range(1, self.L)]
+    def Train(self,train_num):
+        a = 0
+        for i in range(len(self.struct) - 1):
+            a += self.struct[i] * self.struct[i + 1]
+        self.W = [np.random.randn(struct[i], struct[i - 1]) / a for i in range(1, self.L)]
+        self.tra_dim=self.struct[0]
         for i in range(train_num):
             for j in range(len(self.train_x)):
                 self.F_P(j)
-                self.check()
+            self.check()
 
     # 画损失函数值（训练阶段）
     def Plot_Loss(self):
@@ -169,12 +197,15 @@ class NN():
             print('准确率 ：',t/test_data_num)
 
 if __name__ == '__main__':
+    # struct是网络结构，本网络一共5层，每层分别3，3，5，2，1个神经元,
+    struct = [3, 3,5, 2, 1]
     # super parameters
-    L = 5
+    L = len(struct)
     alpha = 0.001
-    model=NN(L,alpha)
-    model.Genernate_Train_Data_batch(data_num=4000)
-    # struct是网络结构，本网络一共5层，每层分别3，3，5，2，1个神经元
-    model.Train(struct=[3, 3, 5, 2, 1],train_num=10)
+    # 创建模型
+    model=NN(L,alpha,struct=struct)
+    model.Genernate_Train_Data_batch(data_num=10000)
+    # 训练10次
+    model.Train(train_num=10)
     # 训练50个Epoch
     model.Test(test_data_num=50)
