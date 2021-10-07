@@ -118,7 +118,8 @@ class NN():
             dW.append(dZ[-1].dot(dA[-1].T))
             dZ.append(dA[-1]*self.g(Z[-1],diff=True))
         # 梯度下降，每个batch结束都会梯度下降一次
-        self.Gradient_decent(dW)
+        dW=np.array(dW)
+        self.Momentum_Gradient_decent(dW)
 
     # 普通梯度下降
     def Gradient_decent(self,dW):
@@ -152,9 +153,11 @@ class NN():
             a += self.struct[i] * self.struct[i + 1]
         self.W = [np.random.randn(struct[i], struct[i - 1]) / a for i in range(1, self.L)]
         self.tra_dim=self.struct[0]
-        for i in range(train_num):
-            for j in range(len(self.train_x)):
-                self.F_P(j)
+        for iteration in range(train_num):
+            # 学习率衰减
+            self.alpha *= 0.95**iteration
+            for batch in range(len(self.train_x)):
+                self.F_P(batch)
             self.check()
 
     # 画损失函数值（训练阶段）
@@ -198,7 +201,7 @@ class NN():
 
 if __name__ == '__main__':
     # struct是网络结构，本网络一共5层，每层分别3，3，5，2，1个神经元,
-    struct = [3, 3,5, 2, 1]
+    struct = [3, 3,5,10,10,2, 1]
     # super parameters
     L = len(struct)
     alpha = 0.001
