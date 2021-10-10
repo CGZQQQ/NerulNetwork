@@ -62,4 +62,8 @@ from sklearn import model_selection
 # plt.show()
 import numpy as np
 
-print(np.zeros((1,4))*5)
+a=np.array([[1,2,3,4,3,2,1],[1,2,3,4,3,2,1],[1,2,3,4,3,2,1]])
+b=np.array([[1],[2],[3]])
+print(a)
+print(b)
+print(a*b)

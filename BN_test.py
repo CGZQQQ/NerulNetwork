@@ -3,22 +3,29 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+
 class NN():
-    def __init__(self, alpha, struct, Batchsize):
+    def __init__(self,alpha,struct,BatchSize):
         # Super parameters
-        self.BatchSize=Batchsize
-        self.struct=struct
-        self.L=len(struct)
-        self.alpha=alpha
-        self.loss=[]
-        self.lmda=10
-        # RMSprop Gradient decent parameters
+        self.BatchSize=BatchSize
+        self.struct = struct
+        self.L = len(struct)
+        self.alpha = alpha
+        self.loss = []
+        self.lmda = 10
+        # RMSProp Gradient decent parameters
         self.Sdw_beta = 0.99
-        self.Sdw = np.array([np.zeros((struct[self.L-i],struct[self.L-i-1])) for i in range(1, self.L)],dtype=object)
+        self.Sdw = np.array([np.zeros((struct[self.L-i], struct[self.L-i-1])) for i in range(1, self.L)], dtype=object)
+        self.Sd_BN_beta = np.array([np.zeros((self.struct[self.L-2-i], 1)) for i in range(self.L-2)], dtype=object)
+        self.Sd_BN_gama = np.array([np.zeros((self.struct[self.L-2-i], 1)) for i in range(self.L-2)], dtype=object)
         # Momentum Gradient decent parameters
         self.Vdw_beta = 0.9
         self.Vdw = np.array([np.zeros((struct[self.L-i],struct[self.L-i-1])) for i in range(1, self.L)],dtype=object)
-
+        self.Vd_BN_beta = np.array([np.zeros((self.struct[self.L-2-i], 1)) for i in range(self.L - 2)], dtype=object)
+        self.Vd_BN_gama = np.array([np.zeros((self.struct[self.L-2-i], 1)) for i in range(self.L - 2)], dtype=object)
+        # Batch Normalization parameters
+        self.BN_gama=np.array([np.random.randn(self.struct[i+1],1) for i in range(self.L-2)],dtype=object)
+        self.BN_beta=np.array([np.random.randn(self.struct[i+1],1) for i in range(self.L-2)],dtype=object)
 
     # 数据归一化
     def Normalize_Data(self,data):
@@ -51,20 +58,6 @@ class NN():
         self.train_x=train_x_list
         self.test_x=np.array([[int(i[1]),int(i[3]),int(i[5])] for i in test_x]).T
 
-    # 制作普通梯度下降训练集
-    def Genernate_Train_Data(self, data_num=1000):
-        df = pd.read_csv('train_data.csv')
-        X = df['data'][0:data_num]
-        Y = df['label'][0:data_num]
-        t_s=0.3
-        train_x, test_x, train_y, test_y =\
-            train_test_split(X, Y, test_size=t_s, random_state=42)
-        self.train_y=np.array([n for n in train_y]).T
-        self.test_y=np.array([n for n in test_y]).T
-        self.tra_num=0.3*len(X)
-        self.train_x=np.array([[int(i[1]),int(i[3]),int(i[5])] for i in train_x]).T
-        self.test_x=np.array([[int(i[1]),int(i[3]),int(i[5])] for i in test_x]).T
-
     # 每个Epoch训练完之后，check一下在验证集上的正确率与loss
     def check(self):
         predict = self.test_x
@@ -82,7 +75,7 @@ class NN():
         print('val_acc:', t / len(self.test_y),'val_loss:',J,len(self.test_y),t)
 
     # 激活函数
-    def g(self,z,diff=False):
+    def g(self, z, diff=False):
         if diff:
             return self.g(z)*(1-self.g(z))
         else:
@@ -95,23 +88,37 @@ class NN():
             w2+=np.linalg.norm(w)
         return w2
 
+    # Batch_Normalization
+    def BatchNormalization(self,z,layer):
+        if layer<self.L-2:
+            average=np.mean(z,axis=1,keepdims=True)
+            variance=np.var(z,axis=1,keepdims=True)
+            z_normal=(z-average)/(np.sqrt(variance+1e-8))
+            return self.BN_gama[layer]*z_normal+self.BN_beta[layer]
+        else:
+            return z
+
     # 前向传播
     def F_P(self,index):
         # Forward progatation
         Z=[]
+        Z_Batch_Normalization=[]
         A=[]
         Z.append(self.train_x[index])
+        Z_Batch_Normalization.append(self.train_x[index])
         A.append(self.train_x[index])
-        for i in range(L-1):
+        for i in range(self.L-1):
+            # 用BN之后的Z代替Z
             Z.append(self.W[i].dot(A[-1]))
-            A.append(self.g(Z[-1]))
-
+            Z_Batch_Normalization.append(self.BatchNormalization(Z[-1],layer=i))
+            # BN之后在进入激活函数
+            A.append(self.g(Z_Batch_Normalization[-1]))
         # Loss Function
         y=A[-1]
         J=-(self.train_y[index]*(np.log(y))+(1-self.train_y[index])*np.log(1-y)).sum()/(self.tra_num*2)+self.lmda*self.R()
         print('train_loss is : ',J)
         self.loss.append(J)
-        return self.B_P(Z,y,index)
+        return self.B_P(Z_Batch_Normalization,y,index)
 
     # 反向传播
     def B_P(self,Z,y,index):
@@ -119,43 +126,52 @@ class NN():
         dZ=[]
         dA=[]
         dW=[]
+        d_BN_beta=[]
+        d_BN_gama=[]
         # 初始化一下
         dA.append((y-self.train_y[index])/(y*(1-y)))
         dZ.append(y-self.train_y[index])
         # 开始反向传播计算每一层权重的梯度，这里我没有加偏置
-        for i in range(L-1):
+        for i in range(self.L-1):
+            # 神经网络的梯度
             dA.append(self.W[-i-1].T.dot(dZ[-1]))
             dW.append(dZ[-1].dot(dA[-1].T)/self.BatchSize)
             dZ.append(dA[-1]*self.g(Z[-1],diff=True))
+            # BN中两个参数的梯度
+            if i<self.L-2:
+                d_BN_beta.append(np.mean(dZ[-1]*1,axis=1,keepdims=True))
+                d_BN_gama.append(np.mean(dZ[-1]*Z[L-2-i],axis=1,keepdims=True))
         # 梯度下降，每个batch结束都会梯度下降一次
+        dW = np.array(dW,dtype=object)
         print(dW)
-        dW=np.array(dW,dtype=object)
+        d_BN_gama=np.array(d_BN_gama,dtype=object)
+        d_BN_beta=np.array(d_BN_beta,dtype=object)
+        # 权重梯度下降
         self.Adam(dW,index+1)
-
-    # 普通梯度下降
-    def Gradient_decent(self,dW):
-        for i in range(L-1):
-            self.W[i]-=self.alpha*dW[-i-1]
-
-    # Momentum梯度下降
-    def Momentum_Gradient_decent(self, dW):
-        self.Vdw=self.Vdw_beta*self.Vdw+(1-self.Vdw_beta)*dW
-        for i in range(L - 1):
-            self.W[i] -= self.alpha * self.Vdw[-i-1]
-
-    # RMSprop梯度下降
-    def RMSprop_Gradient_decent(self, dW):
-        self.Sdw=self.Sdw_beta*self.Sdw+(1-self.Sdw_beta)*(dW*dW)
-        for i in range(L - 1):
-            self.W[i] -= self.alpha * (dW[-i-1]/(np.sqrt(self.Sdw[-i-1])+1e-8))
+        # BN参数梯度下降
+        self.Adam_BN(d_BN_gama,d_BN_beta,index+1)
 
     # Adam
     def Adam(self, dW, t):
         self.Vdw = self.Vdw_beta * self.Vdw + (1 - self.Vdw_beta) * dW
         self.Sdw = self.Sdw_beta * self.Sdw + (1 - self.Sdw_beta) * (dW * dW)
-        for i in range(L - 1):
+        for i in range(self.L - 1):
             self.W[i] -= self.alpha * (self.Vdw[-i-1])/(np.sqrt(self.Sdw[-i-1])+1e-8)*\
                          ((1-self.Sdw_beta**t)/(1-self.Vdw_beta**t))
+
+    def Adam_BN(self, d_BN_gama, d_BN_beta, t):
+        # 更新gama
+        self.Vd_BN_gama = self.Vdw_beta * self.Vd_BN_gama + (1 - self.Vdw_beta) * d_BN_gama
+        self.Sd_BN_gama = self.Sdw_beta * self.Sd_BN_gama + (1 - self.Sdw_beta) * (d_BN_gama * d_BN_gama)
+        for i in range(self.L - 2):
+            self.BN_gama[i] -= self.alpha * (self.Vd_BN_gama[-i-1])/(np.sqrt(self.Sd_BN_gama[-i-1])+1e-8)*\
+                         ((1-self.Sdw_beta**t)/(1-self.Vdw_beta**t))
+        # 更新beta
+        self.Vd_BN_beta = self.Vdw_beta * self.Vd_BN_beta + (1 - self.Vdw_beta) * d_BN_beta
+        self.Sd_BN_beta = self.Sdw_beta * self.Sd_BN_beta + (1 - self.Sdw_beta) * (d_BN_beta * d_BN_beta)
+        for i in range(L - 2):
+            self.BN_beta[i] -= self.alpha * (self.Vd_BN_beta[-i - 1]) / (np.sqrt(self.Sd_BN_beta[-i - 1]) + 1e-8) * \
+                         ((1 - self.Sdw_beta ** t) / (1 - self.Vdw_beta ** t))
 
     # 正式训练
     def Train(self,train_num):
@@ -167,48 +183,10 @@ class NN():
         for iteration in range(train_num):
             # 学习率衰减
             self.alpha *= 0.95**iteration
+            # 批量学习
             for batch in range(len(self.train_x)):
                 self.F_P(batch)
-            self.check()
 
-    # 画损失函数值（训练阶段）
-    def Plot_Loss(self):
-        plt.figure()
-        plt.plot(self.loss)
-        plt.show()
-
-    # 测试准确率
-    def Test(self,test_data_num):
-            self.Test_x = np.random.randint(0, 10, (self.tra_dim, test_data_num)).astype('float64')
-            self.Test_y = np.where(self.Test_x.sum(axis=0) > 15, 1, 0)
-            predict=self.Test_x
-            for i in self.W:
-                predict=i.dot(predict)
-            p_y=np.where(predict>0.5,1,0).sum(axis=0)
-            all=len(self.Test_y)
-            t=0
-            t1=0
-            t0=0
-            n1=0
-            n0=0
-            xx=0
-            for x in range(all):
-                if p_y[x]==self.Test_y[x]:
-                    t+=1
-                if p_y[x]==1 and self.Test_y[x]==1:
-                    t1+=1
-                if p_y[x]==0 and self.Test_y[x]==0:
-                    t0+=1
-                if p_y[x]==1:
-                    n1+=1
-                if p_y[x]==0:
-                    n0+=1
-                if self.Test_y[x]==1:
-                    xx+=1
-            # print(self.Test_x)
-            # print('精确率:1,0 is ',t1/n1,t0/n0)
-            # print('召回率：1,0 is ',t1/xx,t0/(self.tes_num-xx))
-            print('准确率 ：',t/test_data_num)
 
 if __name__ == '__main__':
     # struct是网络结构，本网络一共5层，每层分别3，3，5，2，1个神经元,
@@ -217,9 +195,8 @@ if __name__ == '__main__':
     L = len(struct)
     alpha = 0.001
     # 创建模型
-    model=NN(alpha,struct=struct,Batchsize=200)
+    model=NN(alpha,struct=struct,BatchSize=200)
     model.Genernate_Train_Data_batch(data_num=1200)
     # 训练10次
     model.Train(train_num=1)
-    # # 训练50个Epoch
-    # model.Test(test_data_num=50)
+
