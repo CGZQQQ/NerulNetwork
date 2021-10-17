@@ -126,9 +126,8 @@ class NN():
         for i in range(L-1):
             dA.append(self.W[-i-1].T.dot(dZ[-1]))
             dW.append(dZ[-1].dot(dA[-1].T)/self.BatchSize)
-            dZ.append(dA[-1]*self.g(Z[-1],diff=True))
+            dZ.append(dA[-1]*self.g(Z[-i-2],diff=True))
         # 梯度下降，每个batch结束都会梯度下降一次
-        print(dW)
         dW=np.array(dW,dtype=object)
         self.Adam(dW,index+1)
 
@@ -218,8 +217,8 @@ if __name__ == '__main__':
     alpha = 0.001
     # 创建模型
     model=NN(alpha,struct=struct,Batchsize=200)
-    model.Genernate_Train_Data_batch(data_num=1200)
+    model.Genernate_Train_Data_batch(data_num=2000)
     # 训练10次
-    model.Train(train_num=1)
+    model.Train(train_num=10)
     # # 训练50个Epoch
     # model.Test(test_data_num=50)

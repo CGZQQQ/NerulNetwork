@@ -60,10 +60,35 @@ from sklearn import model_selection
 # # plt.scatter([x for x in range(len(result2))],result2)
 # plt.legend(['origin','beta2=0.9','beta=0.5'])
 # plt.show()
+
 import numpy as np
 
-a=np.array([[1,2,3,4,3,2,1],[1,2,3,4,3,2,1],[1,2,3,4,3,2,1]])
-b=np.array([[1],[2],[3]])
-print(a)
-print(b)
-print(a*b)
+# a=np.array([[[[1],[1],[1]],[[2],[2],[2]]],[[[3],[3],[3]],[[4],[4],[4]]]])
+# print(a.shape)
+# print(a.sum(axis=3).sum(axis=0).T.shape)
+# print(a.sum(axis=3).sum(axis=0).T)
+
+# mu=np.array([1,2,3]).reshape(1,3)
+# z=np.array([[1,2,3,4],[1,2,3,4],[1,2,3,4]])
+# zz=z.T
+# print(np.outer(z,zz))
+# print(np.outer(z,zz).shape)
+# print(np.outer(z,zz).reshape(3,4,4,3))
+# print((np.outer(z,zz).reshape(3,4,4,3).sum(axis=0)/3).shape)
+# print(np.outer(z,zz).reshape(3,4,4,3).sum(axis=0)/3)
+
+mu=np.array([1,1,1]).reshape(3,1)
+z=np.array([[1,2,3,4,5],[1,2,3,4,5],[1,2,3,4,5],[1,2,3,4,5]])
+print(z.shape,'alg')
+zz=z.T
+print(np.outer(z,zz))
+print(np.outer(z,zz).shape)
+print(np.outer(z,zz).reshape(4,5,5,4))
+print((np.outer(z,zz).reshape(4,5,5,4).sum(axis=0)/4).shape)
+print(np.outer(z,zz).reshape(4,5,5,4).sum(axis=0)/4)
+# print(np.outer(z,zz).reshape(3,5,5,3).sum(axis=0)/3-mu)
+print('ok')
+xxT=(np.outer(z,zz).reshape(4,5,5,4).sum(axis=0)/4).sum(axis=0).T
+print(xxT)
+# print(xxT.sum(axis=0).T.shape)
+# print(xxT.sum(axis=0).T)

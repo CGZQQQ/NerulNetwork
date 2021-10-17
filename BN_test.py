@@ -26,7 +26,9 @@ class NN():
         # Batch Normalization parameters
         self.BN_gama=np.array([np.random.randn(self.struct[i+1],1) for i in range(self.L-2)],dtype=object)
         self.BN_beta=np.array([np.random.randn(self.struct[i+1],1) for i in range(self.L-2)],dtype=object)
-
+        self.BN_sigma=[]
+        self.BN_mu=[]
+        self.I=np.identity(self.BatchSize)
     # 数据归一化
     def Normalize_Data(self,data):
         average=np.mean(data,axis=1).reshape(3,1)
@@ -93,39 +95,55 @@ class NN():
         if layer<self.L-2:
             average=np.mean(z,axis=1,keepdims=True)
             variance=np.var(z,axis=1,keepdims=True)
+            self.BN_mu.append(average)
+            self.BN_sigma.append(variance)
             z_normal=(z-average)/(np.sqrt(variance+1e-8))
-            return self.BN_gama[layer]*z_normal+self.BN_beta[layer]
+            return z_normal
         else:
             return z
 
     # 前向传播
+    '''神经网络每一层都会有Z，dZ，A，dA，有L-2层会有BN的scale，shift参数'''
     def F_P(self,index):
         # Forward progatation
         Z=[]
         Z_Batch_Normalization=[]
+        Yi=[]
         A=[]
         Z.append(self.train_x[index])
         Z_Batch_Normalization.append(self.train_x[index])
+        Yi.append(self.train_x[index])
         A.append(self.train_x[index])
         for i in range(self.L-1):
             # 用BN之后的Z代替Z
             Z.append(self.W[i].dot(A[-1]))
-            Z_Batch_Normalization.append(self.BatchNormalization(Z[-1],layer=i))
+            z_n=self.BatchNormalization(Z[-1],layer=i)
+            Z_Batch_Normalization.append(z_n)
+            Yi.append(self.BN_gama[i] * z_n + self.BN_beta[i] if i<self.L-2 else z_n)
             # BN之后在进入激活函数
-            A.append(self.g(Z_Batch_Normalization[-1]))
+            A.append(self.g(Yi[-1]))
         # Loss Function
         y=A[-1]
         J=-(self.train_y[index]*(np.log(y))+(1-self.train_y[index])*np.log(1-y)).sum()/(self.tra_num*2)+self.lmda*self.R()
         print('train_loss is : ',J)
         self.loss.append(J)
-        return self.B_P(Z_Batch_Normalization,y,index)
+        return self.B_P(Yi,Z,y,index)
+
+    # 计算最难梯度z_norm对z的导数
+    def dZN2Z(self,sigma,z,mu,nl):
+        temp=np.outer(z-mu,(z-mu).T).reshape(nl,self.BatchSize,self.BatchSize,nl).sum(axis=0) / nl
+        d=np.array((1 - 1 / self.BatchSize) / sigma - temp.sum(axis=0).T / (self.BatchSize * sigma ** 3))
+        print(d.shape,nl,'duibudui')
+        return d
 
     # 反向传播
-    def B_P(self,Z,y,index):
+    def B_P(self,Yi,Z,y,index):
         # Back progatation
         dZ=[]
+        dZ_N=[]
         dA=[]
         dW=[]
+        dYi=[]
         d_BN_beta=[]
         d_BN_gama=[]
         # 初始化一下
@@ -135,15 +153,17 @@ class NN():
         for i in range(self.L-1):
             # 神经网络的梯度
             dA.append(self.W[-i-1].T.dot(dZ[-1]))
-            dW.append(dZ[-1].dot(dA[-1].T)/self.BatchSize)
-            dZ.append(dA[-1]*self.g(Z[-1],diff=True))
+            dW.append(dZ[-1].dot(dA[-1].T) / self.BatchSize)
+            # 下面其实就是计算BN算法下的dZ
+            dYi.append(dA[-1]*self.g(Yi[-2-i],diff=True))
+            dZ_N.append(dYi[-1]*self.BN_gama[-1-i])
+            dZ.append(dZ_N[-1]*self.dZN2Z(self.BN_sigma[-1-i],Z[-i-2],self.BN_mu[-1-i],self.struct[-2-i]))
             # BN中两个参数的梯度
             if i<self.L-2:
                 d_BN_beta.append(np.mean(dZ[-1]*1,axis=1,keepdims=True))
                 d_BN_gama.append(np.mean(dZ[-1]*Z[L-2-i],axis=1,keepdims=True))
         # 梯度下降，每个batch结束都会梯度下降一次
         dW = np.array(dW,dtype=object)
-        print(dW)
         d_BN_gama=np.array(d_BN_gama,dtype=object)
         d_BN_beta=np.array(d_BN_beta,dtype=object)
         # 权重梯度下降
@@ -190,7 +210,7 @@ class NN():
 
 if __name__ == '__main__':
     # struct是网络结构，本网络一共5层，每层分别3，3，5，2，1个神经元,
-    struct = [3, 3,5,5,10,10,10,10, 5,5,5,5,1]
+    struct = [3, 3, 5, 5, 1]
     # super parameters
     L = len(struct)
     alpha = 0.001
