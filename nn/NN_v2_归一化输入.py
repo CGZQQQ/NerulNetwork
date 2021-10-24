@@ -82,7 +82,7 @@ class NN():
         # print(self.train_y)
         # exit()
     # 每个Epoch训练完之后，check一下在验证集上的正确率与loss
-    def check(self):
+    def check(self,iteration):
         # Forward progatation
         Z = []
         A = []
@@ -107,7 +107,7 @@ class NN():
         for x in range(all):
             if p_y[x] == self.test_y[x]:
                 t += 1
-        print('val_acc:', t / len(self.test_y),'val_loss:',J,len(self.test_y),t)
+        print('第{it}次迭代'.format(it=iteration),'val_acc:', t / len(self.test_y),'val_loss:',J,t)
 
     # 激活函数
     def g(self,z,diff=False,relu=False):
@@ -188,8 +188,8 @@ class NN():
             # 学习率衰减
             for batch in range(len(self.train_x)):
                 self.F_P(batch)
-            if iteration%1000==999:
-                self.check()
+            if iteration%5==4:
+                self.check(iteration)
 
     # 画损失函数值（训练阶段）
     def Plot_Loss(self):
