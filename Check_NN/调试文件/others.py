@@ -1,0 +1,140 @@
+"""制作数据集"""
+import math
+
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from sklearn import model_selection
+
+# n=10000
+# train_x = np.random.randint(0, 10, (n,3))
+# train_y = np.where(train_x.sum(axis=1) > 15, 1, 0)
+# X=[]
+# Y=[]
+# print(train_y)
+# for i in range(len(train_y)):
+#     print(train_x[i],train_y[i])
+#     X.append(train_x[i])
+#     Y.append(train_y[i])
+#
+#
+# dic={'data':X,'label':train_y}
+# df=pd.DataFrame(data=dic)
+# df.to_csv('train_data.csv',index=None,encoding='utf_8_sig')
+
+# from sklearn.model_selection import train_test_split
+# df=pd.read_csv('train_data.csv')
+# X=df['data'][0:10]
+# y=df['label'][0:10]
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+# xx=[]
+# for i in X_train:
+#     xx.append([int(i[1]),int(i[3]),int(i[5])])
+#
+# print(np.array([i for i in y_train]).T)
+# print(np.array(y_train[0:6]).T)
+# print(y_test)
+# print(len())
+
+
+# """指数加权实验"""
+# import numpy as np
+# import matplotlib.pyplot as plt
+# n=1000
+# m=50 # 只取每个指数函数的前50个
+# b=0.90
+# b2=0.50
+# theta_t=np.random.randint(0,100,n)
+# beta=[(1-b)*b**(100-t) for t in range(100)]
+# beta2=[(1-b2)*b2**(100-t) for t in range(100)]
+# a=0
+# average=[]
+# for i in range(n):
+#     average.append((a*i+theta_t[i])/(i+1))
+#     a=(a*i+theta_t[i])/(i+1)
+# result2=[np.sum(theta_t[i-m:i]*beta2[100-m:100],axis=0) for i in range(m,n)]
+# result1=[np.sum(theta_t[i-m:i]*beta[100-m:100],axis=0) for i in range(m,n)]
+# plt.plot(theta_t[20:n])
+# plt.plot(result1,markersize=100)
+# plt.plot(result2,markersize=100)
+# # plt.scatter([x for x in range(20,n)],theta_t[20:n])
+# # plt.scatter([x for x in range(len(result1))],result1)
+# # plt.scatter([x for x in range(len(result2))],result2)
+# plt.legend(['origin','beta2=0.9','beta=0.5'])
+# plt.show()
+
+import numpy as np
+
+# a=np.array([[[[1],[1],[1]],[[2],[2],[2]]],[[[3],[3],[3]],[[4],[4],[4]]]])
+# print(a.shape)
+# print(a.sum(axis=3).sum(axis=0).T.shape)
+# print(a.sum(axis=3).sum(axis=0).T)
+
+# mu=np.array([1,2,3]).reshape(1,3)
+# z=np.array([[1,2,3,4],[1,2,3,4],[1,2,3,4]])
+# zz=z.T
+# print(np.outer(z,zz))
+# print(np.outer(z,zz).shape)
+# print(np.outer(z,zz).reshape(3,4,4,3))
+# print((np.outer(z,zz).reshape(3,4,4,3).sum(axis=0)/3).shape)
+# print(np.outer(z,zz).reshape(3,4,4,3).sum(axis=0)/3)
+
+# mu=np.array([1,1,1]).reshape(3,1)
+# z=np.array([[1,1,1,1,1],[1,2,3,4,5],[1,2,3,4,5],[1,2,3,4,5]])
+# print(z.shape,'alg')
+# zz=z
+# print(np.outer(z,zz))
+# print(np.outer(z,zz).shape)
+# print(np.outer(z,zz).reshape(4,5,5,4))
+# print((np.outer(z,zz).reshape(4,5,5,4).sum(axis=0)/4).shape)
+# print(np.outer(z,zz).reshape(4,5,5,4).sum(axis=0)/4)
+# # print(np.outer(z,zz).reshape(3,5,5,3).sum(axis=0)/3-mu)
+# print('ok')
+# xxT=(np.outer(z,zz).reshape(4,5,5,4).sum(axis=0)/4).sum(axis=0).T
+# print(xxT)
+# print(xxT.sum(axis=0).T.shape)
+# print(xxT.sum(axis=0).T)
+
+# import numpy as np
+# import pandas as pd
+# from matplotlib import pyplot as plt
+# from sklearn import model_selection
+#
+# n=1000000
+# train_x = np.random.randint(0, 10, (n,3))
+# train_y = np.where(train_x.sum(axis=1) > 15, 1, 0)
+# X=[]
+# Y=[]
+# print(train_y)
+# for i in range(len(train_y)):
+#     print(train_x[i],train_y[i])
+#     X.append(train_x[i])
+#     Y.append(train_y[i])
+#
+#
+# dic={'data':X,'label':train_y}
+# df=pd.DataFrame(data=dic)
+# df.to_csv('train_data.csv',index=None,encoding='utf_8_sig')
+
+'''BN dznorm2dz'''
+# z=np.array([[1,1,1,1,1],[1,2,3,4,5],[1,2,3,4,5],[1,2,3,4,5]])
+# X=[[[] for j in range(5)] for i in range(5)]
+# for i in range(5):
+#     for j in range(5):
+#         X[i][j]=z[:,i]*z[:,j]
+#
+# dZ_N=np.array([[1,1,1,1,1],[1,2,3,4,5],[1,2,3,4,5],[1,2,3,4,5]])
+# Y=[ [0] for i in range(5)]
+# print(Y)
+# for i in range(5):
+#     for j in range(5):
+#         Y[i]=X[i][j]*(dZ_N.T[:][j])+Y[i]
+# print(np.array(Y).T.shape)
+# print(np.array(Y).T)
+
+a=[[1,2,-3,-4],[0.33,-0.32,-0.03,-0.04]]
+print(a)
+b=np.array(a)
+print(b)
+c=np.where(b>0,1,0)
+print(c)
