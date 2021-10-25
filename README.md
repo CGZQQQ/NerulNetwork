@@ -8,3 +8,4 @@ https://www.bilibili.com/video/BV1FT4y1E74V?p=71&spm_id_from=pageDriver
 1.数据集划分，归一化输入，神经网络模型的自定义（层数与节点数）
 2.前向后向传播
 3.批量梯度下降，动量梯度下降，PMSprop，Adam等优化算法
+4.BatchNormalzation.
